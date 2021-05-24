@@ -1,14 +1,17 @@
-from glob import glob as search
-import os
-import math
-import logging
-from datetime import datetime
-from pathlib import Path
-import tempfile
 from builtins import input
+from datetime import datetime
+from glob import glob as search
+from pathlib import Path
+import logging
+import math
+import os
+import subprocess
+import tempfile
+import re
 
 class Files:
-  def __init__(self, directories=["./"], prefixes=["*"], recursive=True) -> None:
+  def __init__(self, name="", directories=["./"], prefixes=["*"], recursive=True):
+    self.name = name
     self.config = {}
     self.config['directories'] = directories
     self.config['prefixes'] = prefixes
@@ -65,10 +68,14 @@ class Files:
     return(self.files)
 
   def delete_files(self):
+    logging.warning("Removing %s" % self.name)
     for file in self.files:
       logging.info("Removing " + file)
       if os.path.isfile(file) or os.path.islink(file):
-        os.remove(file)
+        try:
+          os.remove(file)
+        except Exception as e:
+          logging.warning("Could not remove %s: %s" % (file, e))
       elif os.path.isdir(file):
         self.__rmdir(file)
       else:
@@ -80,7 +87,16 @@ class Files:
     # Return freed space
     return(self.previous_size - self.size)
 
-def clean_system_journal(backup=True, vacuum_time="2d"):
+def convert_size(size):
+  if size == 0:
+      return "0B"
+  size_name = ("B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB")
+  i = int(math.floor(math.log(size, 1024)))
+  p = math.pow(1024, i)
+  s = round(size / p, 2)
+  return "%s %s" % (s, size_name[i])
+
+def clean_system_journal(backup=True, vacuum_time="2"):
   now=datetime.utcnow()
   now=datetime.isoformat(now)
   journal_backup_dir = "/data/cvpbackup"
@@ -88,41 +104,44 @@ def clean_system_journal(backup=True, vacuum_time="2d"):
   journal_backup_file = journal_backup_dir + "/" + journal_backup_filename
   journal_backup_cmd = "/bin/bash -c \"journalctl > " + journal_backup_file + "\""
   journal_cleanup_cmd = "/bin/bash -c \"journalctl --vacuum-time=" + vacuum_time + "d\""
+  logging.warning("Cleaning system journal")
 
   if backup:
-    logging.info("Backing up system journal before cleanup")
-    logging.debug("Journal backup file: " + journal_backup_dir + "/" + journal_backup_file)
-    os.system(journal_backup_cmd)
+    logging.info("Backing up current system journal to %s before cleanup" % (journal_backup_file))
+    try:
+      os.system(journal_backup_cmd)
+    except Exception as e:
+      logging.warning("Could not back up journal: %s" % e)
   
-  logging.info("Cleaning system journal")
-  os.system(journal_cleanup_cmd)
+  output = subprocess.check_output(journal_cleanup_cmd, stderr=subprocess.STDOUT, shell=True).decode()
 
-  logging.debug("Calculating freed space")
-  tmp, journal_tmp_filename = tempfile.mkstemp()
-  os.close(tmp)
-  journal_backup_cmd = "/bin/bash -c \"journalctl > " + journal_tmp_filename + "\""
-  os.system(journal_backup_cmd)
-
-  backup_size = os.stat(journal_backup_file).st_size
-  current_size = os.stat(journal_tmp_filename).st_size
-  os.remove(journal_tmp_filename)
-
-  logging.debug("Previous journal size: " + str(backup_size))
-  logging.debug("Current journal size: " + str(current_size))
-
-  size_diff = (backup_size - current_size)
+  size_diff = re.search('freed (.+) of archived journals', output).groups()[0]
+  if 'B' in size_diff:
+    size_diff = float(size_diff.split('B')[0])
+  elif 'K' in size_diff:
+    size_diff = float(size_diff.split('K')[0])
+    size_diff = size_diff * 1024
+  elif 'M' in size_diff:
+    size_diff = float(size_diff.split('M')[0])
+    size_diff = size_diff * 1024 * 1024
+  elif 'G' in size_diff:
+    size_diff = float(size_diff.split('G')[0])
+    size_diff = size_diff * 1024 * 1024 * 1024
+  else:
+    logging.warning("Could not parse size unit. Freed space will be inacurate.")
+    size_diff = 0
 
   # Return freed space
-  return(size_diff)
+  return(int(size_diff))
 
 def main():
-  system_logs = Files(directories=["/var/log"],prefixes=["*.gz", "*.[0-9]"])
-  system_crash_files = Files(directories=["/var/crash"])
-  cvp_logs = Files(directories=["/cvpi/logs", "/cvpi/hadoop/logs", "/cvpi/habase/logs", "/cvpi/apps/turbine/logs", "/cvpi/apps/aeris/logs", "/cvpi/apps/cvp/logs"], prefixes=["*.log*", "*.out*"])
-  cvp_docker_images = Files(directories=["/cvpi/docker"], prefixes=["*.gz"])
-  cvp_rpms = Files(directories=["/RPMS"], prefixes=["*.rpm"])
-  cvp_elasticsearch_heap_dumps = Files(directories=["/cvpi/apps/aeris/elasticsearch"], prefixes=["*.hprof"])
-  cvp_tmp_upgrade = Files(directories=["/tmp"], prefixes=["upgrade*"], recursive=False)
+  system_logs = Files(name="System logs", directories=["/var/log"],prefixes=["*.gz", "*.[0-9]"])
+  system_crash_files = Files(name="System crash files", directories=["/var/crash"])
+  cvp_logs = Files(name="CVP logs", directories=["/cvpi/logs", "/cvpi/hadoop/logs", "/cvpi/habase/logs", "/cvpi/apps/turbine/logs", "/cvpi/apps/aeris/logs", "/cvpi/apps/cvp/logs"], prefixes=["*.log*", "*.out*"])
+  cvp_docker_images = Files(name="CVP docker images", directories=["/cvpi/docker"], prefixes=["*.gz"])
+  cvp_rpms = Files(name="CVP RPMs", directories=["/RPMS"], prefixes=["*.rpm"])
+  cvp_elasticsearch_heap_dumps = Files(name="CVP Heap Dumps", directories=["/cvpi/apps/aeris/elasticsearch"], prefixes=["*.hprof"])
+  cvp_tmp_upgrade = Files(name="Temporary upgrade files", directories=["/tmp"], prefixes=["upgrade*"], recursive=False)
 
   menu = {}
   menu['1'] = "Clean system logs (" + system_logs.pretty_size + ")"
@@ -132,6 +151,7 @@ def main():
   menu['5'] = "Clean CVP RPMs (" + cvp_rpms.pretty_size + ")"
   menu['6'] = "Clean Elasticsearch Heap Dumps (" + cvp_elasticsearch_heap_dumps.pretty_size + ")"
   menu['7'] = "Clean CVP temporary upgrade directories (" + cvp_tmp_upgrade.pretty_size + ")"
+  menu['8'] = "Vacuum system journal"
   menu['9'] = "Clean everything"
   menu['Q'] = "Exit"
 
@@ -146,40 +166,50 @@ def main():
 
     if selection == '1':
       freed = system_logs.delete_files()
-      message = "System logs - Freed " + str(freed) + " bytes"
+      message = "System logs - Freed " + convert_size(freed)
       logging.info(message)
       print(message)
     elif selection == '2':
       freed = system_crash_files.delete_files()
-      message = "System crash files - Freed " + str(freed) + " bytes"
+      message = "System crash files - Freed " + convert_size(freed)
       logging.info(message)
       print(message)
     elif selection == '3':
       freed = cvp_logs.delete_files()
-      message = "CVP logs - Freed " + str(freed) + " bytes"
+      message = "CVP logs - Freed " + convert_size(freed)
       logging.info(message)
       print(message)
     elif selection == '4':
       freed = cvp_docker_images.delete_files()
-      message = "CVP docker images - Freed " + str(freed) + " bytes"
+      message = "CVP docker images - Freed " + convert_size(freed)
       logging.info(message)
       print(message)
     elif selection == '5':
       freed = cvp_rpms.delete_files()
-      message = "CVP RPMs - Freed " + str(freed) + " bytes"
+      message = "CVP RPMs - Freed " + convert_size(freed)
       logging.info(message)
       print(message)
     elif selection == '6':
       freed = cvp_elasticsearch_heap_dumps.delete_files()
-      message = "CVP Elasticsearch Heap Dumps - Freed " + str(freed) + " bytes"
+      message = "CVP Elasticsearch Heap Dumps - Freed " + convert_size(freed)
       logging.info(message)
       print(message)
     elif selection == '7':
       freed = cvp_tmp_upgrade.delete_files()
-      message = "CVP temporary upgrade files - Freed " + str(freed) + " bytes"
+      message = "CVP temporary upgrade files - Freed " + convert_size(freed)
+      logging.info(message)
+      print(message)
+    elif selection == '8':
+      vacuum_time = input("How many days to keep on the journal? (Default: 2 days)\n")
+      if vacuum_time:
+        freed = clean_system_journal(vacuum_time=vacuum_time)
+      else:
+        freed = clean_system_journal()
+      message = "System journal vacuum - Freed " + convert_size(freed)
       logging.info(message)
       print(message)
     elif selection == '9':
+      vacuum_time = input("How many days to keep on the journal? (Default: 2 days)\n")
       freed = system_logs.delete_files()
       freed += system_crash_files.delete_files()
       freed += cvp_logs.delete_files()
@@ -187,7 +217,11 @@ def main():
       freed += cvp_rpms.delete_files()
       freed += cvp_elasticsearch_heap_dumps.delete_files()
       freed += cvp_tmp_upgrade.delete_files()
-      message = "Full cleanup - Freed " + str(freed) + " bytes"
+      if vacuum_time:
+        freed += clean_system_journal(vacuum_time=vacuum_time)
+      else:
+        freed += clean_system_journal()
+      message = "Full cleanup - Freed " + convert_size(freed)
       logging.info(message)
       print(message)
     elif selection == 'Q' or selection == 'q':
