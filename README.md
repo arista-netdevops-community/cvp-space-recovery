@@ -17,7 +17,7 @@ Looks for and removes crash dump files from the `/var/crash` directory.
 Removes `*.log` and `*.out` files from the following directories:
 - /cvpi/logs
 - /cvpi/hadoop/logs
-- /cvpi/habase/logs
+- /cvpi/hbase/logs
 - /cvpi/apps/turbine/logs
 - /cvpi/apps/aeris/logs
 - /cvpi/apps/cvp/logs

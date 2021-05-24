@@ -156,7 +156,7 @@ def clean_system_journal(backup=True, vacuum_time="2"):
 def main():
   system_logs = Files(name="System logs", directories=["/var/log"],prefixes=["*.gz", "*.[0-9]"])
   system_crash_files = Files(name="System crash files", directories=["/var/crash"])
-  cvp_logs = Files(name="CVP logs", directories=["/cvpi/logs", "/cvpi/hadoop/logs", "/cvpi/habase/logs", "/cvpi/apps/turbine/logs", "/cvpi/apps/aeris/logs", "/cvpi/apps/cvp/logs"], prefixes=["*.log*", "*.out*"])
+  cvp_logs = Files(name="CVP logs", directories=["/cvpi/logs", "/cvpi/hadoop/logs", "/cvpi/hbase/logs", "/cvpi/apps/turbine/logs", "/cvpi/apps/aeris/logs", "/cvpi/apps/cvp/logs"], prefixes=["*.log*", "*.out*", "*.gc"])
   cvp_docker_images = Files(name="CVP docker images", directories=["/cvpi/docker"], prefixes=["*.gz"])
   cvp_rpms = Files(name="CVP RPMs", directories=["/RPMS"], prefixes=["*.rpm"])
   cvp_elasticsearch_heap_dumps = Files(name="CVP Elasticsearch Heap Dumps", directories=["/cvpi/apps/aeris/elasticsearch"], prefixes=["*.hprof"])
