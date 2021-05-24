@@ -6,8 +6,16 @@ import logging
 import math
 import os
 import subprocess
-import tempfile
 import re
+import sys
+
+log = logging.getLogger('cleanup')
+handler = logging.StreamHandler(sys.stdout)
+handler.setLevel(logging.WARNING)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
+log.addHandler(handler)
+log.setLevel(logging.WARNING)
 
 class Files:
   def __init__(self, name="", directories=["./"], prefixes=["*"], recursive=True):
@@ -20,6 +28,7 @@ class Files:
     self.reset(self.config['directories'], self.config['prefixes'], self.config['recursive'])
 
   def reset(self, directories, prefixes, recursive):
+    log.debug("Initializing %s" % self.name)
     self.files = []
     self.size = 0
     self.__get_files()
@@ -28,13 +37,22 @@ class Files:
     for directory in self.config['directories']:
       for prefix in self.config['prefixes']:
         current_search = directory + "/" + prefix
-        logging.debug("Searching for files matching the pattern " + current_search)
-        matches = search(current_search, recursive=self.config['recursive'])
+        log.debug("Searching for files matching the pattern " + current_search)
+        try:
+          matches = search(current_search, recursive=self.config['recursive'])
+        except TypeError:
+          matches = search(current_search)
+          matches += search(current_search + "/**")
+          matches += search(current_search + "/**/**")
+          matches += search(current_search + "/**/**/**")
+          matches += search(current_search + "/**/**/**/**")
+          matches += search(current_search + "/**/**/**/**/**")
         if matches:
           self.files.append(matches)
     self.files = self.__flatten(self.files)
     self.size = self.__get_total_size()
     self.pretty_size = self.__convert_size()
+    log.debug("Files in %s: %s" %(self.config['directories'], self.files))
 
   def __flatten(self, list):
     list = [item for sublist in list for item in sublist]
@@ -68,18 +86,18 @@ class Files:
     return(self.files)
 
   def delete_files(self):
-    logging.warning("Removing %s" % self.name)
+    log.warning("Removing %s" % self.name)
     for file in self.files:
-      logging.info("Removing " + file)
+      log.info("Removing " + file)
       if os.path.isfile(file) or os.path.islink(file):
         try:
           os.remove(file)
         except Exception as e:
-          logging.warning("Could not remove %s: %s" % (file, e))
+          log.warning("Could not remove %s: %s" % (file, e))
       elif os.path.isdir(file):
         self.__rmdir(file)
       else:
-        logging.warn("Not removing file " + file + ".")
+        log.debug("Not removing file " + file + ".")
 
     self.previous_size = self.size
     self.reset(self.config['directories'], self.config['prefixes'], self.config['recursive'])
@@ -104,14 +122,14 @@ def clean_system_journal(backup=True, vacuum_time="2"):
   journal_backup_file = journal_backup_dir + "/" + journal_backup_filename
   journal_backup_cmd = "/bin/bash -c \"journalctl > " + journal_backup_file + "\""
   journal_cleanup_cmd = "/bin/bash -c \"journalctl --vacuum-time=" + vacuum_time + "d\""
-  logging.warning("Cleaning system journal")
+  log.warning("Cleaning system journal")
 
   if backup:
-    logging.info("Backing up current system journal to %s before cleanup" % (journal_backup_file))
+    log.info("Backing up current system journal to %s before cleanup" % (journal_backup_file))
     try:
       os.system(journal_backup_cmd)
     except Exception as e:
-      logging.warning("Could not back up journal: %s" % e)
+      log.warning("Could not back up journal: %s" % e)
   
   output = subprocess.check_output(journal_cleanup_cmd, stderr=subprocess.STDOUT, shell=True).decode()
 
@@ -128,7 +146,7 @@ def clean_system_journal(backup=True, vacuum_time="2"):
     size_diff = float(size_diff.split('G')[0])
     size_diff = size_diff * 1024 * 1024 * 1024
   else:
-    logging.warning("Could not parse size unit. Freed space will be inacurate.")
+    log.warning("Could not parse size unit. Freed space will be inacurate.")
     size_diff = 0
 
   # Return freed space
@@ -143,61 +161,61 @@ def main():
   cvp_elasticsearch_heap_dumps = Files(name="CVP Heap Dumps", directories=["/cvpi/apps/aeris/elasticsearch"], prefixes=["*.hprof"])
   cvp_tmp_upgrade = Files(name="Temporary upgrade files", directories=["/tmp"], prefixes=["upgrade*"], recursive=False)
 
-  menu = {}
-  menu['1'] = "Clean system logs (" + system_logs.pretty_size + ")"
-  menu['2'] = "Clean system crash files (" + system_crash_files.pretty_size + ")"
-  menu['3'] = "Clean CVP logs (" + cvp_logs.pretty_size + ")"
-  menu['4'] = "Clean CVP docker images (" + cvp_docker_images.pretty_size + ")"
-  menu['5'] = "Clean CVP RPMs (" + cvp_rpms.pretty_size + ")"
-  menu['6'] = "Clean Elasticsearch Heap Dumps (" + cvp_elasticsearch_heap_dumps.pretty_size + ")"
-  menu['7'] = "Clean CVP temporary upgrade directories (" + cvp_tmp_upgrade.pretty_size + ")"
-  menu['8'] = "Vacuum system journal"
-  menu['9'] = "Clean everything"
-  menu['Q'] = "Exit"
-
   while True:
+    menu = {}
+    menu['1'] = "Clean system logs (" + system_logs.pretty_size + ")"
+    menu['2'] = "Clean system crash files (" + system_crash_files.pretty_size + ")"
+    menu['3'] = "Clean CVP logs (" + cvp_logs.pretty_size + ")"
+    menu['4'] = "Clean CVP docker images (" + cvp_docker_images.pretty_size + ")"
+    menu['5'] = "Clean CVP RPMs (" + cvp_rpms.pretty_size + ")"
+    menu['6'] = "Clean Elasticsearch Heap Dumps (" + cvp_elasticsearch_heap_dumps.pretty_size + ")"
+    menu['7'] = "Clean CVP temporary upgrade directories (" + cvp_tmp_upgrade.pretty_size + ")"
+    menu['8'] = "Vacuum system journal"
+    menu['9'] = "Clean everything"
+    menu['Q'] = "Exit"
+
     options = list(menu.keys())
     options.sort()
     for entry in options:
       print(entry + " - " + menu[entry])
 
-    print()
+    print("\n")
     selection = input("Choose an option\n")
 
     if selection == '1':
       freed = system_logs.delete_files()
       message = "System logs - Freed " + convert_size(freed)
-      logging.info(message)
+      log.info(message)
       print(message)
     elif selection == '2':
       freed = system_crash_files.delete_files()
       message = "System crash files - Freed " + convert_size(freed)
-      logging.info(message)
+      log.info(message)
       print(message)
     elif selection == '3':
       freed = cvp_logs.delete_files()
       message = "CVP logs - Freed " + convert_size(freed)
-      logging.info(message)
+      log.info(message)
       print(message)
     elif selection == '4':
       freed = cvp_docker_images.delete_files()
       message = "CVP docker images - Freed " + convert_size(freed)
-      logging.info(message)
+      log.info(message)
       print(message)
     elif selection == '5':
       freed = cvp_rpms.delete_files()
       message = "CVP RPMs - Freed " + convert_size(freed)
-      logging.info(message)
+      log.info(message)
       print(message)
     elif selection == '6':
       freed = cvp_elasticsearch_heap_dumps.delete_files()
       message = "CVP Elasticsearch Heap Dumps - Freed " + convert_size(freed)
-      logging.info(message)
+      log.info(message)
       print(message)
     elif selection == '7':
       freed = cvp_tmp_upgrade.delete_files()
       message = "CVP temporary upgrade files - Freed " + convert_size(freed)
-      logging.info(message)
+      log.info(message)
       print(message)
     elif selection == '8':
       vacuum_time = input("How many days to keep on the journal? (Default: 2 days)\n")
@@ -206,7 +224,7 @@ def main():
       else:
         freed = clean_system_journal()
       message = "System journal vacuum - Freed " + convert_size(freed)
-      logging.info(message)
+      log.info(message)
       print(message)
     elif selection == '9':
       vacuum_time = input("How many days to keep on the journal? (Default: 2 days)\n")
@@ -222,7 +240,7 @@ def main():
       else:
         freed += clean_system_journal()
       message = "Full cleanup - Freed " + convert_size(freed)
-      logging.info(message)
+      log.info(message)
       print(message)
     elif selection == 'Q' or selection == 'q':
       break
