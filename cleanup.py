@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 from builtins import input
 from datetime import datetime
 from glob import glob as search
@@ -5,8 +6,8 @@ from pathlib import Path
 import logging
 import math
 import os
-import subprocess
 import re
+import subprocess
 import sys
 
 log = logging.getLogger('cleanup')
@@ -158,7 +159,7 @@ def main():
   cvp_logs = Files(name="CVP logs", directories=["/cvpi/logs", "/cvpi/hadoop/logs", "/cvpi/habase/logs", "/cvpi/apps/turbine/logs", "/cvpi/apps/aeris/logs", "/cvpi/apps/cvp/logs"], prefixes=["*.log*", "*.out*"])
   cvp_docker_images = Files(name="CVP docker images", directories=["/cvpi/docker"], prefixes=["*.gz"])
   cvp_rpms = Files(name="CVP RPMs", directories=["/RPMS"], prefixes=["*.rpm"])
-  cvp_elasticsearch_heap_dumps = Files(name="CVP Heap Dumps", directories=["/cvpi/apps/aeris/elasticsearch"], prefixes=["*.hprof"])
+  cvp_elasticsearch_heap_dumps = Files(name="CVP Elasticsearch Heap Dumps", directories=["/cvpi/apps/aeris/elasticsearch"], prefixes=["*.hprof"])
   cvp_tmp_upgrade = Files(name="Temporary upgrade files", directories=["/tmp"], prefixes=["upgrade*"], recursive=False)
 
   while True:
