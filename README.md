@@ -32,7 +32,7 @@ Removes all RPM files from `/RPMS`. *This will not free space under / on CVP 202
 Removes `*.hprof` files from `/cvpi/apps/aeris/elasticsearch`. *This will not free space under / on CVP 2020.2.3+ and will free space from /data instead.*
 
 ### Temporary upgrade files
-Removes files and directories names `upgrade*` under `/tmp`.
+Removes files and directories named `upgrade*` under `/tmp`.
 
 ### Vacuum system journal
 Removes old entries from the system's journal. You'll be asked about how many days of old entries you want to keep, and a backup of older entries will be saved under `/data`.
