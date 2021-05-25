@@ -1,8 +1,6 @@
 #!/usr/bin/env python
-from builtins import input
 from datetime import datetime
 from glob import glob as search
-from pathlib import Path
 import logging
 import math
 import os
@@ -75,13 +73,22 @@ class Files:
     return "%s %s" % (s, size_name[i])
 
   def __rmdir(self, directory):
-    directory = Path(directory)
-    for item in directory.iterdir():
-        if item.is_dir():
+    d = os.listdir(directory)
+    for item in d:
+        item = directory + "/" + item
+        if os.path.isdir(item):
             self.__rmdir(item)
-        else:
-            item.unlink()
-    directory.rmdir()
+        elif os.path.isfile(item) or os.path.islink(item):
+            os.remove(item)
+            break
+    for item in d:
+      rmdir = directory + "/" + item
+      if os.path.isdir(rmdir):
+        os.rmdir(rmdir)
+    try:
+      os.rmdir(directory)
+    except:
+      pass
 
   def list(self):
     return(self.files)
@@ -162,6 +169,12 @@ def main():
   cvp_elasticsearch_heap_dumps = Files(name="CVP Elasticsearch Heap Dumps", directories=["/cvpi/apps/aeris/elasticsearch"], prefixes=["*.hprof"])
   cvp_tmp_upgrade = Files(name="Temporary upgrade files", directories=["/tmp"], prefixes=["upgrade*"], recursive=False)
 
+  # Python 2-3 compatibility workaround
+  try:
+    raw_input = input
+  except:
+    pass
+
   while True:
     menu = {}
     menu['1'] = "Clean system logs (" + system_logs.pretty_size + ")"
@@ -181,7 +194,7 @@ def main():
       print(entry + " - " + menu[entry])
 
     print("\n")
-    selection = input("Choose an option\n")
+    selection = raw_input("Choose an option\n")
 
     if selection == '1':
       freed = system_logs.delete_files()
@@ -219,7 +232,7 @@ def main():
       log.info(message)
       print(message)
     elif selection == '8':
-      vacuum_time = input("How many days to keep on the journal? (Default: 2 days)\n")
+      vacuum_time = raw_input("How many days to keep on the journal? (Default: 2 days)\n")
       if vacuum_time:
         freed = clean_system_journal(vacuum_time=vacuum_time)
       else:
@@ -228,7 +241,7 @@ def main():
       log.info(message)
       print(message)
     elif selection == '9':
-      vacuum_time = input("How many days to keep on the journal? (Default: 2 days)\n")
+      vacuum_time = raw_input("How many days to keep on the journal? (Default: 2 days)\n")
       freed = system_logs.delete_files()
       freed += system_crash_files.delete_files()
       freed += cvp_logs.delete_files()
