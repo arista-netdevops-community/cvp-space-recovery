@@ -17,13 +17,14 @@ log.addHandler(handler)
 log.setLevel(logging.WARNING)
 
 class Files:
-  def __init__(self, name="", directories=["./"], prefixes=["*"], recursive=True, autoconfirm=False):
+  def __init__(self, name="", directories=["./"], prefixes=["*"], recursive=True, autoconfirm=False, remove_directories=False):
     self.name = name
     self.config = {}
     self.config['directories'] = directories
     self.config['prefixes'] = prefixes
     self.config['recursive'] = recursive
     self.config['autoconfirm'] = autoconfirm
+    self.config['remove_directories'] = remove_directories
     self.previous_size = 0
     self.reset(self.config['directories'], self.config['prefixes'], self.config['recursive'])
 
@@ -36,21 +37,14 @@ class Files:
   def __get_files(self):
     for directory in self.config['directories']:
       for prefix in self.config['prefixes']:
-        try:
-          if self.config['recursive']:
-            current_search = directory + "/**/" + prefix
-          else:
-            current_search = directory + "/" + prefix
-          log.debug("Searching for files matching the pattern " + current_search)
-          matches = search(current_search, recursive=self.config['recursive'])
-        except TypeError:
-          matches = search(current_search)
-          if self.config['recursive']:
-            matches += search(current_search + "/**")
-            matches += search(current_search + "/**/**")
-            matches += search(current_search + "/**/**/**")
-            matches += search(current_search + "/**/**/**/**")
-            matches += search(current_search + "/**/**/**/**/**")
+        matches = search(directory + "/" + prefix)
+        if self.config['recursive']:
+          matches += search(directory + "/" + "*/" + prefix)
+          matches += search(directory + "/" + "*/" + "*/" + prefix)
+          matches += search(directory + "/" + "*/" + "*/" + "*/" + prefix)
+          matches += search(directory + "/" + "*/" + "*/" + "*/" + "*/" + prefix)
+          matches += search(directory + "/" + "*/" + "*/" + "*/" + "*/" + "*/" + prefix)
+          matches += search(directory + "/" + "*/" + "*/" + "*/" + "*/" + "*/" + "*/" + prefix)
         if matches:
           self.files.append(matches)
     self.files = self.__flatten(self.files)
@@ -78,22 +72,28 @@ class Files:
     return "%s %s" % (s, size_name[i])
 
   def __rmdir(self, directory):
-    d = os.listdir(directory)
-    for item in d:
-        item = directory + "/" + item
-        if os.path.isdir(item):
-            self.__rmdir(item)
-        elif os.path.isfile(item) or os.path.islink(item):
-            os.remove(item)
-            break
-    for item in d:
-      rmdir = directory + "/" + item
-      if os.path.isdir(rmdir):
-        os.rmdir(rmdir)
     try:
-      os.rmdir(directory)
+      d = os.listdir(directory)
+      for item in d:
+          item = directory + "/" + item
+          if os.path.isdir(item):
+              self.__rmdir(item)
+          elif os.path.isfile(item) or os.path.islink(item):
+              os.remove(item)
+              break
+      for item in d:
+        rmdir = directory + "/" + item
+        if os.path.isdir(rmdir):
+          os.rmdir(rmdir)
+      try:
+        os.rmdir(directory)
+      except:
+        pass
     except:
-      pass
+      if self.config['remove_directories']:
+        matches = search(directory)
+        for match in matches:
+          os.rmdir(match)
 
   def list(self):
     return(self.files)
@@ -114,6 +114,9 @@ class Files:
           self.__rmdir(file)
         else:
           log.debug("Not removing file " + file + ".")
+      if self.config['remove_directories']:
+        for directory in self.config['directories']:
+          self.__rmdir(directory)
 
     self.previous_size = self.size
     self.reset(self.config['directories'], self.config['prefixes'], self.config['recursive'])
@@ -171,14 +174,14 @@ def clean_system_journal(backup=True, vacuum_time="2"):
 def main():
   system_logs = Files(name="System logs", directories=["/var/log"],prefixes=["*.gz", "*.[0-9]"])
   system_crash_files = Files(name="System crash files", directories=["/var/crash"])
-  cvp_logs = Files(name="CVP logs", directories=["/cvpi/logs", "/cvpi/hadoop/logs", "/cvpi/hbase/logs", "/cvpi/apps/turbine/logs", "/cvpi/apps/aeris/logs", "/cvpi/apps/cvp/logs"], prefixes=["*.log*", "*.out*", "*.gc"])
+  cvp_logs = Files(name="CVP logs", directories=["/cvpi/logs", "/cvpi/hadoop/logs", "/cvpi/hbase/logs", "/cvpi/apps/turbine/logs", "/cvpi/apps/aeris/logs", "/cvpi/apps/cvp/logs"], prefixes=["*.log*", "*.out*", "*.gc", "*.gz"])
   cvp_docker_images = Files(name="CVP docker images", directories=["/cvpi/docker"], prefixes=["*.gz"])
   cvp_rpms = Files(name="CVP RPMs", directories=["/RPMS"], prefixes=["*.rpm"])
   cvp_elasticsearch_heap_dumps = Files(name="CVP Elasticsearch Heap Dumps", directories=["/cvpi/apps/aeris/elasticsearch"], prefixes=["*.hprof"])
-  cvp_tmp_upgrade = Files(name="Temporary upgrade files", directories=["/tmp"], prefixes=["upgrade*"])
+  cvp_tmp_upgrade = Files(name="Temporary upgrade files", directories=["/tmp/upgrade*"], prefixes=["*"], remove_directories=True)
 
   while True:
-    os.system('clear')
+    #os.system('clear')
     menu = {}
     menu['1'] = "Clean old system logs (" + system_logs.pretty_size + ")"
     menu['2'] = "Clean system crash files (" + system_crash_files.pretty_size + ")"
@@ -201,6 +204,7 @@ def main():
     extended_menu['5s'] = "Show CVP RPM files"
     extended_menu['6s'] = "Show Elasticsearch heap dumps files"
     extended_menu['7s'] = "Show temporary upgrade files"
+    extended_menu['R']  = "Reload"
 
     options = list(menu.keys())
     options.sort()
@@ -210,7 +214,7 @@ def main():
     print("\n")
     selection = input("Choose an option\n")
 
-    if selection == 'M' or selection is 'm':
+    if selection.lower() == 'm':
       options = list(extended_menu.keys())
       options.sort()
       for entry in options:
@@ -291,7 +295,10 @@ def main():
       message = "Full cleanup - Freed " + convert_size(freed)
       log.info(message)
       print(message)
-    elif selection == 'Q' or selection is 'q':
+    elif selection.lower() == 'q':
+      break
+    elif selection.lower() == 'r':
+      main()
       break
     else:
       print("Unknown option %s." %selection)
