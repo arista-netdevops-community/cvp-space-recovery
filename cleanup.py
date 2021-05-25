@@ -181,7 +181,7 @@ def main():
   cvp_tmp_upgrade = Files(name="Temporary upgrade files", directories=["/tmp/upgrade*"], prefixes=["*"], remove_directories=True)
 
   while True:
-    #os.system('clear')
+    os.system('clear')
     menu = {}
     menu['1'] = "Clean old system logs (" + system_logs.pretty_size + ")"
     menu['2'] = "Clean system crash files (" + system_crash_files.pretty_size + ")"
