@@ -17,12 +17,13 @@ log.addHandler(handler)
 log.setLevel(logging.WARNING)
 
 class Files:
-  def __init__(self, name="", directories=["./"], prefixes=["*"], recursive=True):
+  def __init__(self, name="", directories=["./"], prefixes=["*"], recursive=True, autoconfirm=False):
     self.name = name
     self.config = {}
     self.config['directories'] = directories
     self.config['prefixes'] = prefixes
     self.config['recursive'] = recursive
+    self.config['autoconfirm'] = autoconfirm
     self.previous_size = 0
     self.reset(self.config['directories'], self.config['prefixes'], self.config['recursive'])
 
@@ -98,18 +99,21 @@ class Files:
     return(self.files)
 
   def delete_files(self):
-    log.warning("Removing %s" % self.name)
-    for file in self.files:
-      log.info("Removing " + file)
-      if os.path.isfile(file) or os.path.islink(file):
-        try:
-          os.remove(file)
-        except Exception as e:
-          log.warning("Could not remove %s: %s" % (file, e))
-      elif os.path.isdir(file):
-        self.__rmdir(file)
-      else:
-        log.debug("Not removing file " + file + ".")
+    if not self.config['autoconfirm']:
+      confirm = input("This will delete all files and cannot be undone. Are you sure you want to continue? (y/N) ")
+    if confirm.lower() == "y" or confirm.lower() == "yes":
+      log.warning("Removing %s" % self.name)
+      for file in self.files:
+        log.info("Removing " + file)
+        if os.path.isfile(file) or os.path.islink(file):
+          try:
+            os.remove(file)
+          except Exception as e:
+            log.warning("Could not remove %s: %s" % (file, e))
+        elif os.path.isdir(file):
+          self.__rmdir(file)
+        else:
+          log.debug("Not removing file " + file + ".")
 
     self.previous_size = self.size
     self.reset(self.config['directories'], self.config['prefixes'], self.config['recursive'])
