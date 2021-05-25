@@ -35,17 +35,21 @@ class Files:
   def __get_files(self):
     for directory in self.config['directories']:
       for prefix in self.config['prefixes']:
-        current_search = directory + "/" + prefix
-        log.debug("Searching for files matching the pattern " + current_search)
         try:
+          if self.config['recursive']:
+            current_search = directory + "/**/" + prefix
+          else:
+            current_search = directory + "/" + prefix
+          log.debug("Searching for files matching the pattern " + current_search)
           matches = search(current_search, recursive=self.config['recursive'])
         except TypeError:
           matches = search(current_search)
-          matches += search(current_search + "/**")
-          matches += search(current_search + "/**/**")
-          matches += search(current_search + "/**/**/**")
-          matches += search(current_search + "/**/**/**/**")
-          matches += search(current_search + "/**/**/**/**/**")
+          if self.config['recursive']:
+            matches += search(current_search + "/**")
+            matches += search(current_search + "/**/**")
+            matches += search(current_search + "/**/**/**")
+            matches += search(current_search + "/**/**/**/**")
+            matches += search(current_search + "/**/**/**/**/**")
         if matches:
           self.files.append(matches)
     self.files = self.__flatten(self.files)
@@ -167,17 +171,12 @@ def main():
   cvp_docker_images = Files(name="CVP docker images", directories=["/cvpi/docker"], prefixes=["*.gz"])
   cvp_rpms = Files(name="CVP RPMs", directories=["/RPMS"], prefixes=["*.rpm"])
   cvp_elasticsearch_heap_dumps = Files(name="CVP Elasticsearch Heap Dumps", directories=["/cvpi/apps/aeris/elasticsearch"], prefixes=["*.hprof"])
-  cvp_tmp_upgrade = Files(name="Temporary upgrade files", directories=["/tmp"], prefixes=["upgrade*"], recursive=False)
-
-  # Python 2-3 compatibility workaround
-  try:
-    raw_input = input
-  except:
-    pass
+  cvp_tmp_upgrade = Files(name="Temporary upgrade files", directories=["/tmp"], prefixes=["upgrade*"])
 
   while True:
+    os.system('clear')
     menu = {}
-    menu['1'] = "Clean system logs (" + system_logs.pretty_size + ")"
+    menu['1'] = "Clean old system logs (" + system_logs.pretty_size + ")"
     menu['2'] = "Clean system crash files (" + system_crash_files.pretty_size + ")"
     menu['3'] = "Clean CVP logs (" + cvp_logs.pretty_size + ")"
     menu['4'] = "Clean CVP docker images (" + cvp_docker_images.pretty_size + ")"
@@ -186,7 +185,18 @@ def main():
     menu['7'] = "Clean CVP temporary upgrade directories (" + cvp_tmp_upgrade.pretty_size + ")"
     menu['8'] = "Vacuum system journal"
     menu['9'] = "Clean everything"
+    menu["="] = "=============================================================="
+    menu['M'] = "More options"
     menu['Q'] = "Exit"
+
+    extended_menu = {}
+    extended_menu['1s'] = "Show old system log files"
+    extended_menu['2s'] = "Show old system crash files"
+    extended_menu['3s'] = "Show CVP log files"
+    extended_menu['4s'] = "Show CVP docker images"
+    extended_menu['5s'] = "Show CVP RPM files"
+    extended_menu['6s'] = "Show Elasticsearch heap dumps files"
+    extended_menu['7s'] = "Show temporary upgrade files"
 
     options = list(menu.keys())
     options.sort()
@@ -194,45 +204,66 @@ def main():
       print(entry + " - " + menu[entry])
 
     print("\n")
-    selection = raw_input("Choose an option\n")
+    selection = input("Choose an option\n")
+
+    if selection == 'M' or selection is 'm':
+      options = list(extended_menu.keys())
+      options.sort()
+      for entry in options:
+        print(entry + " - " + extended_menu[entry])
+      selection = input("Choose an option\n")
 
     if selection == '1':
       freed = system_logs.delete_files()
       message = "System logs - Freed " + convert_size(freed)
       log.info(message)
       print(message)
+    elif selection == '1s':
+      print(system_logs.list())
     elif selection == '2':
       freed = system_crash_files.delete_files()
       message = "System crash files - Freed " + convert_size(freed)
       log.info(message)
       print(message)
+    elif selection == '2s':
+      print(system_crash_files.list())
     elif selection == '3':
       freed = cvp_logs.delete_files()
       message = "CVP logs - Freed " + convert_size(freed)
       log.info(message)
       print(message)
+    elif selection == '3s':
+      print(cvp_logs.list())
     elif selection == '4':
       freed = cvp_docker_images.delete_files()
       message = "CVP docker images - Freed " + convert_size(freed)
       log.info(message)
       print(message)
+    elif selection == '4s':
+      print(cvp_docker_images.list())
     elif selection == '5':
       freed = cvp_rpms.delete_files()
       message = "CVP RPMs - Freed " + convert_size(freed)
       log.info(message)
       print(message)
+    elif selection == '5s':
+      print(cvp_rpms.list())
     elif selection == '6':
       freed = cvp_elasticsearch_heap_dumps.delete_files()
       message = "CVP Elasticsearch Heap Dumps - Freed " + convert_size(freed)
       log.info(message)
       print(message)
+    elif selection == '6s':
+      print(cvp_elasticsearch_heap_dumps.list())
     elif selection == '7':
       freed = cvp_tmp_upgrade.delete_files()
       message = "CVP temporary upgrade files - Freed " + convert_size(freed)
       log.info(message)
       print(message)
+    elif selection == '7s':
+      print(cvp_tmp_upgrade.list())
     elif selection == '8':
-      vacuum_time = raw_input("How many days to keep on the journal? (Default: 2 days)\n")
+      vacuum_time = input("How many days to keep on the journal? (Default: 2 days)\n")
       if vacuum_time:
         freed = clean_system_journal(vacuum_time=vacuum_time)
       else:
@@ -241,7 +272,7 @@ def main():
       log.info(message)
       print(message)
     elif selection == '9':
-      vacuum_time = raw_input("How many days to keep on the journal? (Default: 2 days)\n")
+      vacuum_time = input("How many days to keep on the journal? (Default: 2 days)\n")
       freed = system_logs.delete_files()
       freed += system_crash_files.delete_files()
       freed += cvp_logs.delete_files()
@@ -256,10 +287,20 @@ def main():
       message = "Full cleanup - Freed " + convert_size(freed)
       log.info(message)
       print(message)
-    elif selection == 'Q' or selection == 'q':
+    elif selection == 'Q' or selection is 'q':
       break
     else:
-      print("Unknown option.")
+      print("Unknown option %s." %selection)
+
+    try:
+      f = input("\nPress enter to continue")
+    except:
+      pass
     
 if __name__ == "__main__":
+  # Python 2-3 compatibility workaround
+  try:
+    input = raw_input
+  except NameError:
+    pass
   main()
