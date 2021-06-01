@@ -171,6 +171,15 @@ def clean_system_journal(backup=True, vacuum_time="2"):
   # Return freed space
   return(int(size_diff))
 
+def showMenu(items, sort=True):
+  options = list(items.keys())
+  if sort:
+    options.sort()
+  for entry in options:
+    print(entry + " - " + items[entry])
+  choice = input("Choose an option\n")
+  return(choice)
+
 def main():
   system_logs = Files(name="System logs", directories=["/var/log"],prefixes=["*.gz", "*.[0-9]"])
   system_crash_files = Files(name="System crash files", directories=["/var/crash"])
@@ -179,6 +188,12 @@ def main():
   cvp_rpms = Files(name="CVP RPMs", directories=["/RPMS"], prefixes=["*.rpm"])
   cvp_elasticsearch_heap_dumps = Files(name="CVP Elasticsearch Heap Dumps", directories=["/cvpi/apps/aeris/elasticsearch"], prefixes=["*.hprof"])
   cvp_tmp_upgrade = Files(name="Temporary upgrade files", directories=["/tmp/upgrade*"], prefixes=["*"], remove_directories=True)
+
+  kubelet_logs = {}
+  kubelet_logs['all'] = Files(name="Kubelet Logs - All", directories=["/var/log"], prefixes=["kubelet.*.root.log.*"])
+  kubelet_logs['info'] = Files(name="Kubelet Logs - Info", directories=["/var/log"], prefixes=["kubelet.*.root.log.INFO.*"])
+  kubelet_logs['warning'] = Files(name="Kubelet Logs - Warning", directories=["/var/log"], prefixes=["kubelet.*.root.log.WARNING.*"])
+  kubelet_logs['error'] = Files(name="Kubelet Logs - Error", directories=["/var/log"], prefixes=["kubelet.*.root.log.ERROR.*"])
 
   while True:
     os.system('clear')
@@ -191,8 +206,9 @@ def main():
     menu['6'] = "Clean Elasticsearch Heap Dumps (" + cvp_elasticsearch_heap_dumps.pretty_size + ")"
     menu['7'] = "Clean CVP temporary upgrade directories (" + cvp_tmp_upgrade.pretty_size + ")"
     menu['8'] = "Vacuum system journal"
-    menu['9'] = "Clean everything"
+    menu['9'] = "Clean kubelet logs (" + kubelet_logs['all'].pretty_size + ")"
     menu["="] = "=============================================================="
+    menu['A'] = "Clean all"
     menu['M'] = "More options"
     menu['Q'] = "Exit"
 
@@ -204,22 +220,21 @@ def main():
     extended_menu['5s'] = "Show CVP RPM files"
     extended_menu['6s'] = "Show Elasticsearch heap dumps files"
     extended_menu['7s'] = "Show temporary upgrade files"
+    extended_menu['9s'] = "Show Kubelet logs"
     extended_menu['R']  = "Reload"
 
-    options = list(menu.keys())
-    options.sort()
-    for entry in options:
-      print(entry + " - " + menu[entry])
+    kubelet_menu = {}
+    kubelet_menu['9a'] = "Clean all kubelet logs (" + kubelet_logs['all'].pretty_size + ")"
+    kubelet_menu['9i'] = "Clean kubelet info logs (" + kubelet_logs['info'].pretty_size + ")"
+    kubelet_menu['9w'] = "Clean kubelet warning logs (" + kubelet_logs['warning'].pretty_size + ")"
+    kubelet_menu['9e'] = "Clean kubelet error logs (" + kubelet_logs['error'].pretty_size + ")"
 
-    print("\n")
-    selection = input("Choose an option\n")
+    selection = showMenu(menu)
 
     if selection.lower() == 'm':
-      options = list(extended_menu.keys())
-      options.sort()
-      for entry in options:
-        print(entry + " - " + extended_menu[entry])
-      selection = input("Choose an option\n")
+      selection = showMenu(extended_menu)
+    elif selection == '9':
+      selection = showMenu(kubelet_menu)
 
     if selection == '1':
       freed = system_logs.delete_files()
@@ -279,7 +294,34 @@ def main():
       message = "System journal vacuum - Freed " + convert_size(freed)
       log.info(message)
       print(message)
-    elif selection == '9':
+    elif selection.lower() == '9a':
+      freed = kubelet_logs['all'].delete_files()
+      message = "Kubelet logs - Freed " + convert_size(freed)
+      log.info(message)
+      print(message)
+    elif selection.lower() == '9i':
+      freed = kubelet_logs['info'].delete_files()
+      message = "Kubelet logs (info) - Freed " + convert_size(freed)
+      log.info(message)
+      print(message)
+    elif selection.lower() == '9w':
+      freed = kubelet_logs['warning'].delete_files()
+      message = "Kubelet logs (warning) - Freed " + convert_size(freed)
+      log.info(message)
+      print(message)
+    elif selection.lower() == '9e':
+      freed = kubelet_logs['error'].delete_files()
+      message = "Kubelet logs (error) - Freed " + convert_size(freed)
+      log.info(message)
+      print(message)
+    elif selection.lower() == '9s':
+      print("--- Info ---")
+      print(kubelet_logs['info'].list())
+      print("--- Warning ---")
+      print(kubelet_logs['warning'].list())
+      print("--- Error ---")
+      print(kubelet_logs['error'].list())
+    elif selection.lower() == 'a':
       vacuum_time = input("How many days to keep on the journal? (Default: 2 days)\n")
       freed = system_logs.delete_files()
       freed += system_crash_files.delete_files()
@@ -300,6 +342,8 @@ def main():
     elif selection.lower() == 'r':
       main()
       break
+    elif selection.lower() == 'm' or selection.lower() == '9':
+      pass
     else:
       print("Unknown option %s." %selection)
 
