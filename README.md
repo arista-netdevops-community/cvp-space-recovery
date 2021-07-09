@@ -1,10 +1,12 @@
 # cvp-space-recovery
 
-Find and remove unecessary files to free up disk space in CVP servers.
+Find and remove unnecessary files to free up disk space in CVP servers.
 
 ## Quickstart
 
-Just run `python cleanup.py`. You'll be presented with a multiple choice menu with various options for removing old/unecessary files.
+Just copy the script to the CVP server(s) and run `python cleanup.py`. The script may be copied to any directory, such as `/tmp`. You'll be presented with a multiple-choice menu with various options for removing old/unnecessary files.
+
+If you have a CVP cluster, you need to run the script in all nodes since it won't remotely connect to different servers.
 
 ## Options
 ### System Logs
