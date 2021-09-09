@@ -330,6 +330,7 @@ def main():
       freed += cvp_rpms.delete_files()
       freed += cvp_elasticsearch_heap_dumps.delete_files()
       freed += cvp_tmp_upgrade.delete_files()
+      freed += kubelet_logs['all'].delete_files()
       if vacuum_time:
         freed += clean_system_journal(vacuum_time=vacuum_time)
       else:
