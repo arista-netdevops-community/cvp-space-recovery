@@ -215,9 +215,10 @@ def main():
     menu['Q'] = "Exit"
 
     extended_menu = {}
-    extended_menu['1s'] = "Show old system log files"
-    extended_menu['2s'] = "Show old system crash files"
-    extended_menu['3s'] = "Show CVP log files"
+    extended_menu['0s'] = "Show old system log files"
+    extended_menu['1s'] = "Show old system crash files"
+    extended_menu['2s'] = "Show Rotated CVP log files"
+    extended_menu['3s'] = "Show Current CVP log files"
     extended_menu['4s'] = "Show CVP docker images"
     extended_menu['5s'] = "Show CVP RPM files"
     extended_menu['6s'] = "Show Elasticsearch heap dumps files"

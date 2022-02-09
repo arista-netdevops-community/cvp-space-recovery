@@ -15,8 +15,17 @@ Looks for and removes old logs with the suffix `*.gz` and `*.[0-9]` in the `/var
 ### System Crash Files
 Looks for and removes crash dump files from the `/var/crash` directory.
 
-### CVP logs
-Removes `*.log` and `*.out` files from the following directories:
+### Rotated CVP logs
+Removes `*.log.*`, `*.out.*`, `*.gc.*`, `*.gz` and `*.[0-9]` files from the following directories:
+- /cvpi/logs
+- /cvpi/hadoop/logs
+- /cvpi/hbase/logs
+- /cvpi/apps/turbine/logs
+- /cvpi/apps/aeris/logs
+- /cvpi/apps/cvp/logs
+
+### Current CVP logs
+Removes `*.log`, `*.out` and `*.gc` files from the following directories:
 - /cvpi/logs
 - /cvpi/hadoop/logs
 - /cvpi/hbase/logs
@@ -38,3 +47,10 @@ Removes files and directories named `upgrade*` under `/tmp`.
 
 ### Vacuum system journal
 Removes old entries from the system's journal. You'll be asked about how many days of old entries you want to keep, and a backup of older entries will be saved under `/data`.
+
+### Kubelet logs
+Removes kubelet log files from `/var/log`. When choosing this option you'll have an option to choose between:
+- All kubelet logs: `kubelet.*.root.log.*` files.
+- Kubelet error logs: `kubelet.*.root.log.INFO.*` files.
+- Kubelet warning logs: `kubelet.*.root.log.WARNING.*` files.
+- Kubelet info logs: `kubelet.*.root.log.INFO.*` files.
