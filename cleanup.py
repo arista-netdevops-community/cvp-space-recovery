@@ -183,7 +183,8 @@ def showMenu(items, sort=True):
 def main():
   system_logs = Files(name="System logs", directories=["/var/log"],prefixes=["*.gz", "*.[0-9]"])
   system_crash_files = Files(name="System crash files", directories=["/var/crash"])
-  cvp_logs = Files(name="CVP logs", directories=["/cvpi/logs", "/cvpi/hadoop/logs", "/cvpi/hbase/logs", "/cvpi/apps/turbine/logs", "/cvpi/apps/aeris/logs", "/cvpi/apps/cvp/logs"], prefixes=["*.log*", "*.out*", "*.gc", "*.gz", "*.[0-9]"])
+  cvp_logs = Files(name="CVP Rotated logs", directories=["/cvpi/logs", "/cvpi/hadoop/logs", "/cvpi/hbase/logs", "/cvpi/apps/turbine/logs", "/cvpi/apps/aeris/logs", "/cvpi/apps/cvp/logs"], prefixes=["*.log.*", "*.out.*", "*.gc.*", "*.gz", "*.[0-9]"])
+  cvp_current_logs = Files(name="CVP Current logs", directories=["/cvpi/logs", "/cvpi/hadoop/logs", "/cvpi/hbase/logs", "/cvpi/apps/turbine/logs", "/cvpi/apps/aeris/logs", "/cvpi/apps/cvp/logs"], prefixes=["*.log", "*.out", "*.gc"])
   cvp_docker_images = Files(name="CVP docker images", directories=["/cvpi/docker"], prefixes=["*.gz"])
   cvp_rpms = Files(name="CVP RPMs", directories=["/RPMS"], prefixes=["*.rpm"])
   cvp_elasticsearch_heap_dumps = Files(name="CVP Elasticsearch Heap Dumps", directories=["/cvpi/apps/aeris/elasticsearch"], prefixes=["*.hprof"])
@@ -198,9 +199,10 @@ def main():
   while True:
     os.system('clear')
     menu = {}
-    menu['1'] = "Clean old system logs (" + system_logs.pretty_size + ")"
-    menu['2'] = "Clean system crash files (" + system_crash_files.pretty_size + ")"
-    menu['3'] = "Clean CVP logs (" + cvp_logs.pretty_size + ")"
+    menu['0'] = "Clean old system logs (" + system_logs.pretty_size + ")"
+    menu['1'] = "Clean system crash files (" + system_crash_files.pretty_size + ")"
+    menu['2'] = "Clean Rotated CVP logs (" + cvp_logs.pretty_size + ")"
+    menu['3'] = "Clean Current CVP logs (" + cvp_current_logs.pretty_size + ")"
     menu['4'] = "Clean CVP docker images (" + cvp_docker_images.pretty_size + ")"
     menu['5'] = "Clean CVP RPMs (" + cvp_rpms.pretty_size + ")"
     menu['6'] = "Clean Elasticsearch Heap Dumps (" + cvp_elasticsearch_heap_dumps.pretty_size + ")"
@@ -236,27 +238,35 @@ def main():
     elif selection == '9':
       selection = showMenu(kubelet_menu)
 
-    if selection == '1':
+    if selection == '0':
       freed = system_logs.delete_files()
       message = "System logs - Freed " + convert_size(freed)
       log.info(message)
       print(message)
-    elif selection == '1s':
+    elif selection == '0s':
       print(system_logs.list())
-    elif selection == '2':
+    elif selection == '1':
       freed = system_crash_files.delete_files()
       message = "System crash files - Freed " + convert_size(freed)
       log.info(message)
       print(message)
-    elif selection == '2s':
+    elif selection == '1s':
       print(system_crash_files.list())
-    elif selection == '3':
+    elif selection == '2':
       freed = cvp_logs.delete_files()
-      message = "CVP logs - Freed " + convert_size(freed)
+      message = "CVP Rotated logs - Freed " + convert_size(freed)
+      log.info(message)
+      print(message)
+    elif selection == '2s':
+      print(cvp_logs.list())
+    elif selection == '3':
+      print("WARNING! This may remove files that may be useful to debug issues.")
+      freed = cvp_current_logs.delete_files()
+      message = "CVP Current logs - Freed %s.\nPlease restart CVP to free up space used by open log files." % convert_size(freed)
       log.info(message)
       print(message)
     elif selection == '3s':
-      print(cvp_logs.list())
+      print(cvp_current_logs.list())
     elif selection == '4':
       freed = cvp_docker_images.delete_files()
       message = "CVP docker images - Freed " + convert_size(freed)
@@ -322,10 +332,12 @@ def main():
       print("--- Error ---")
       print(kubelet_logs['error'].list())
     elif selection.lower() == 'a':
+      print("WARNING! This may remove files that may be useful to debug issues.")
       vacuum_time = input("How many days to keep on the journal? (Default: 2 days)\n")
       freed = system_logs.delete_files()
       freed += system_crash_files.delete_files()
       freed += cvp_logs.delete_files()
+      freed += cvp_current_logs.delete_files()
       freed += cvp_docker_images.delete_files()
       freed += cvp_rpms.delete_files()
       freed += cvp_elasticsearch_heap_dumps.delete_files()
@@ -335,7 +347,7 @@ def main():
         freed += clean_system_journal(vacuum_time=vacuum_time)
       else:
         freed += clean_system_journal()
-      message = "Full cleanup - Freed " + convert_size(freed)
+      message = "Full cleanup - Freed %s.\nPlease restart CVP to free up space used by open log files." %convert_size(freed)
       log.info(message)
       print(message)
     elif selection.lower() == 'q':
