@@ -210,7 +210,7 @@ def main():
     menu['8'] = "Vacuum system journal"
     menu['9'] = "Clean kubelet logs (" + kubelet_logs['all'].pretty_size + ")"
     menu["="] = "=============================================================="
-    menu['A'] = "Clean all"
+    menu['A'] = "Clean all (A! to also remove current logs)"
     menu['M'] = "More options"
     menu['Q'] = "Exit"
 
@@ -332,13 +332,15 @@ def main():
       print(kubelet_logs['warning'].list())
       print("--- Error ---")
       print(kubelet_logs['error'].list())
-    elif selection.lower() == 'a':
-      print("WARNING! This may remove files that may be useful to debug issues.")
+    elif selection.lower() == 'a' or selection.lower() == 'a!':
+      if selection.lower() == 'a!':
+        print("WARNING! This may remove files that may be useful to debug issues.")
       vacuum_time = input("How many days to keep on the journal? (Default: 2 days)\n")
       freed = system_logs.delete_files()
       freed += system_crash_files.delete_files()
       freed += cvp_logs.delete_files()
-      freed += cvp_current_logs.delete_files()
+      if selection.lower() == 'a!':
+        freed += cvp_current_logs.delete_files()
       freed += cvp_docker_images.delete_files()
       freed += cvp_rpms.delete_files()
       freed += cvp_elasticsearch_heap_dumps.delete_files()
