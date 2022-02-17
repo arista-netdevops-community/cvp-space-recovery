@@ -124,6 +124,30 @@ class Files:
     # Return freed space
     return(self.previous_size - self.size)
 
+  def auto_delete_files(self):
+    if not self.config['autoconfirm']:
+      confirm = "y"
+    if confirm.lower() == "y" or confirm.lower() == "yes":
+      for file in self.files:
+        if os.path.isfile(file) or os.path.islink(file):
+          try:
+            os.remove(file)
+          except Exception as e:
+            log.warning("Could not remove %s: %s" % (file, e))
+        elif os.path.isdir(file):
+          self.__rmdir(file)
+        else:
+          log.debug("Not removing file " + file + ".")
+      if self.config['remove_directories']:
+        for directory in self.config['directories']:
+          self.__rmdir(directory)
+
+    self.previous_size = self.size
+    self.reset(self.config['directories'], self.config['prefixes'], self.config['recursive'])
+
+    # Return freed space
+    return(self.previous_size - self.size)
+
 def convert_size(size):
   if size == 0:
       return "0B"
@@ -142,6 +166,43 @@ def clean_system_journal(backup=True, vacuum_time="2"):
   journal_backup_cmd = "/bin/bash -c \"journalctl > " + journal_backup_file + "\""
   journal_cleanup_cmd = "/bin/bash -c \"journalctl --vacuum-time=" + vacuum_time + "d\""
   log.warning("Cleaning system journal")
+
+  if backup:
+    log.info("Backing up current system journal to %s before cleanup" % (journal_backup_file))
+    try:
+      os.system(journal_backup_cmd)
+    except Exception as e:
+      log.warning("Could not back up journal: %s" % e)
+  
+  output = subprocess.check_output(journal_cleanup_cmd, stderr=subprocess.STDOUT, shell=True).decode()
+
+  size_diff = re.search('freed (.+) of archived journals', output).groups()[0]
+  if 'B' in size_diff:
+    size_diff = float(size_diff.split('B')[0])
+  elif 'K' in size_diff:
+    size_diff = float(size_diff.split('K')[0])
+    size_diff = size_diff * 1024
+  elif 'M' in size_diff:
+    size_diff = float(size_diff.split('M')[0])
+    size_diff = size_diff * 1024 * 1024
+  elif 'G' in size_diff:
+    size_diff = float(size_diff.split('G')[0])
+    size_diff = size_diff * 1024 * 1024 * 1024
+  else:
+    log.warning("Could not parse size unit. Freed space will be inacurate.")
+    size_diff = 0
+
+  # Return freed space
+  return(int(size_diff))
+
+def auto_clean_system_journal(backup=True, vacuum_time="2"):
+  now=datetime.utcnow()
+  now=datetime.isoformat(now)
+  journal_backup_dir = "/data/cvpbackup"
+  journal_backup_filename = "journalctl-" + now
+  journal_backup_file = journal_backup_dir + "/" + journal_backup_filename
+  journal_backup_cmd = "/bin/bash -c \"journalctl > " + journal_backup_file + "\""
+  journal_cleanup_cmd = "/bin/bash -c \"journalctl --vacuum-time=" + vacuum_time + "d\""
 
   if backup:
     log.info("Backing up current system journal to %s before cleanup" % (journal_backup_file))
@@ -196,177 +257,201 @@ def main():
   kubelet_logs['warning'] = Files(name="Kubelet Logs - Warning", directories=["/var/log"], prefixes=["kubelet.*.root.log.WARNING.*"])
   kubelet_logs['error'] = Files(name="Kubelet Logs - Error", directories=["/var/log"], prefixes=["kubelet.*.root.log.ERROR.*"])
 
-  while True:
-    os.system('clear')
-    menu = {}
-    menu['0'] = "Clean old system logs (" + system_logs.pretty_size + ")"
-    menu['1'] = "Clean system crash files (" + system_crash_files.pretty_size + ")"
-    menu['2'] = "Clean Rotated CVP logs (" + cvp_logs.pretty_size + ")"
-    menu['3'] = "Clean Current CVP logs (" + cvp_current_logs.pretty_size + ")"
-    menu['4'] = "Clean CVP docker images (" + cvp_docker_images.pretty_size + ")"
-    menu['5'] = "Clean CVP RPMs (" + cvp_rpms.pretty_size + ")"
-    menu['6'] = "Clean Elasticsearch Heap Dumps (" + cvp_elasticsearch_heap_dumps.pretty_size + ")"
-    menu['7'] = "Clean CVP temporary upgrade directories (" + cvp_tmp_upgrade.pretty_size + ")"
-    menu['8'] = "Vacuum system journal"
-    menu['9'] = "Clean kubelet logs (" + kubelet_logs['all'].pretty_size + ")"
-    menu["="] = "=============================================================="
-    menu['A'] = "Clean all (A! to also remove current logs)"
-    menu['M'] = "More options"
-    menu['Q'] = "Exit"
+  if len(sys.argv) > 1:
+	vacuum_time = sys.argv[1]
+	cleanup_log = open("cleanup_log.txt", "a")
+  	freed = system_logs.auto_delete_files()
+  	freed += system_crash_files.auto_delete_files()
+  	freed += cvp_logs.auto_delete_files()
+  	freed += cvp_docker_images.auto_delete_files()
+  	freed += cvp_rpms.auto_delete_files()
+  	freed += cvp_elasticsearch_heap_dumps.auto_delete_files()
+  	freed += cvp_tmp_upgrade.auto_delete_files()
+  	freed += kubelet_logs['all'].auto_delete_files()
+  	if vacuum_time:
+    		freed += auto_clean_system_journal(vacuum_time=vacuum_time)
+  	else:
+    		freed += clean_system_journal()
+  	message = "Full cleanup - Freed " + convert_size(freed)
+  	import datetime
+  	date_time = datetime.datetime.now()
+  	final_message = (message + "   " + date_time.strftime("%c") + "\n")
+  	cleanup_log.write(final_message)
+  	cleanup_log.close()
+  	sys.exit(1)
 
-    extended_menu = {}
-    extended_menu['0s'] = "Show old system log files"
-    extended_menu['1s'] = "Show old system crash files"
-    extended_menu['2s'] = "Show Rotated CVP log files"
-    extended_menu['3s'] = "Show Current CVP log files"
-    extended_menu['4s'] = "Show CVP docker images"
-    extended_menu['5s'] = "Show CVP RPM files"
-    extended_menu['6s'] = "Show Elasticsearch heap dumps files"
-    extended_menu['7s'] = "Show temporary upgrade files"
-    extended_menu['9s'] = "Show Kubelet logs"
-    extended_menu['R']  = "Reload"
+  else:
+  	while True:
+    		os.system('clear')
+    		menu = {}
+    		menu['0'] = "Clean old system logs (" + system_logs.pretty_size + ")"
+    		menu['1'] = "Clean system crash files (" + system_crash_files.pretty_size + ")"
+    		menu['2'] = "Clean Rotated CVP logs (" + cvp_logs.pretty_size + ")"
+    		menu['3'] = "Clean Current CVP logs (" + cvp_current_logs.pretty_size + ")"
+    		menu['4'] = "Clean CVP docker images (" + cvp_docker_images.pretty_size + ")"
+    		menu['5'] = "Clean CVP RPMs (" + cvp_rpms.pretty_size + ")"
+    		menu['6'] = "Clean Elasticsearch Heap Dumps (" + cvp_elasticsearch_heap_dumps.pretty_size + ")"
+    		menu['7'] = "Clean CVP temporary upgrade directories (" + cvp_tmp_upgrade.pretty_size + ")"
+    		menu['8'] = "Vacuum system journal"
+    		menu['9'] = "Clean kubelet logs (" + kubelet_logs['all'].pretty_size + ")"
+    		menu["="] = "=============================================================="
+    		menu['A'] = "Clean all (A! to also remove current logs)"
+    		menu['M'] = "More options"
+    		menu['Q'] = "Exit"
 
-    kubelet_menu = {}
-    kubelet_menu['9a'] = "Clean all kubelet logs (" + kubelet_logs['all'].pretty_size + ")"
-    kubelet_menu['9i'] = "Clean kubelet info logs (" + kubelet_logs['info'].pretty_size + ")"
-    kubelet_menu['9w'] = "Clean kubelet warning logs (" + kubelet_logs['warning'].pretty_size + ")"
-    kubelet_menu['9e'] = "Clean kubelet error logs (" + kubelet_logs['error'].pretty_size + ")"
+    		extended_menu = {}
+    		extended_menu['0s'] = "Show old system log files"
+    		extended_menu['1s'] = "Show old system crash files"
+    		extended_menu['2s'] = "Show Rotated CVP log files"
+    		extended_menu['3s'] = "Show Current CVP log files"
+    		extended_menu['4s'] = "Show CVP docker images"
+    		extended_menu['5s'] = "Show CVP RPM files"
+    		extended_menu['6s'] = "Show Elasticsearch heap dumps files"
+    		extended_menu['7s'] = "Show temporary upgrade files"
+    		extended_menu['9s'] = "Show Kubelet logs"
+    		extended_menu['R']  = "Reload"
 
-    selection = showMenu(menu)
+    		kubelet_menu = {}
+    		kubelet_menu['9a'] = "Clean all kubelet logs (" + kubelet_logs['all'].pretty_size + ")"
+    		kubelet_menu['9i'] = "Clean kubelet info logs (" + kubelet_logs['info'].pretty_size + ")"
+    		kubelet_menu['9w'] = "Clean kubelet warning logs (" + kubelet_logs['warning'].pretty_size + ")"
+    		kubelet_menu['9e'] = "Clean kubelet error logs (" + kubelet_logs['error'].pretty_size + ")"
 
-    if selection.lower() == 'm':
-      selection = showMenu(extended_menu)
-    elif selection == '9':
-      selection = showMenu(kubelet_menu)
+    		selection = showMenu(menu)
 
-    if selection == '0':
-      freed = system_logs.delete_files()
-      message = "System logs - Freed " + convert_size(freed)
-      log.info(message)
-      print(message)
-    elif selection == '0s':
-      print(system_logs.list())
-    elif selection == '1':
-      freed = system_crash_files.delete_files()
-      message = "System crash files - Freed " + convert_size(freed)
-      log.info(message)
-      print(message)
-    elif selection == '1s':
-      print(system_crash_files.list())
-    elif selection == '2':
-      freed = cvp_logs.delete_files()
-      message = "CVP Rotated logs - Freed " + convert_size(freed)
-      log.info(message)
-      print(message)
-    elif selection == '2s':
-      print(cvp_logs.list())
-    elif selection == '3':
-      print("WARNING! This may remove files that may be useful to debug issues.")
-      freed = cvp_current_logs.delete_files()
-      message = "CVP Current logs - Freed %s.\nPlease restart CVP to free up space used by open log files." % convert_size(freed)
-      log.info(message)
-      print(message)
-    elif selection == '3s':
-      print(cvp_current_logs.list())
-    elif selection == '4':
-      freed = cvp_docker_images.delete_files()
-      message = "CVP docker images - Freed " + convert_size(freed)
-      log.info(message)
-      print(message)
-    elif selection == '4s':
-      print(cvp_docker_images.list())
-    elif selection == '5':
-      freed = cvp_rpms.delete_files()
-      message = "CVP RPMs - Freed " + convert_size(freed)
-      log.info(message)
-      print(message)
-    elif selection == '5s':
-      print(cvp_rpms.list())
-    elif selection == '6':
-      freed = cvp_elasticsearch_heap_dumps.delete_files()
-      message = "CVP Elasticsearch Heap Dumps - Freed " + convert_size(freed)
-      log.info(message)
-      print(message)
-    elif selection == '6s':
-      print(cvp_elasticsearch_heap_dumps.list())
-    elif selection == '7':
-      freed = cvp_tmp_upgrade.delete_files()
-      message = "CVP temporary upgrade files - Freed " + convert_size(freed)
-      log.info(message)
-      print(message)
-    elif selection == '7s':
-      print(cvp_tmp_upgrade.list())
-    elif selection == '8':
-      vacuum_time = input("How many days to keep on the journal? (Default: 2 days)\n")
-      if vacuum_time:
-        freed = clean_system_journal(vacuum_time=vacuum_time)
-      else:
-        freed = clean_system_journal()
-      message = "System journal vacuum - Freed " + convert_size(freed)
-      log.info(message)
-      print(message)
-    elif selection.lower() == '9a':
-      freed = kubelet_logs['all'].delete_files()
-      message = "Kubelet logs - Freed " + convert_size(freed)
-      log.info(message)
-      print(message)
-    elif selection.lower() == '9i':
-      freed = kubelet_logs['info'].delete_files()
-      message = "Kubelet logs (info) - Freed " + convert_size(freed)
-      log.info(message)
-      print(message)
-    elif selection.lower() == '9w':
-      freed = kubelet_logs['warning'].delete_files()
-      message = "Kubelet logs (warning) - Freed " + convert_size(freed)
-      log.info(message)
-      print(message)
-    elif selection.lower() == '9e':
-      freed = kubelet_logs['error'].delete_files()
-      message = "Kubelet logs (error) - Freed " + convert_size(freed)
-      log.info(message)
-      print(message)
-    elif selection.lower() == '9s':
-      print("--- Info ---")
-      print(kubelet_logs['info'].list())
-      print("--- Warning ---")
-      print(kubelet_logs['warning'].list())
-      print("--- Error ---")
-      print(kubelet_logs['error'].list())
-    elif selection.lower() == 'a' or selection.lower() == 'a!':
-      if selection.lower() == 'a!':
-        print("WARNING! This may remove files that may be useful to debug issues.")
-      vacuum_time = input("How many days to keep on the journal? (Default: 2 days)\n")
-      freed = system_logs.delete_files()
-      freed += system_crash_files.delete_files()
-      freed += cvp_logs.delete_files()
-      if selection.lower() == 'a!':
-        freed += cvp_current_logs.delete_files()
-      freed += cvp_docker_images.delete_files()
-      freed += cvp_rpms.delete_files()
-      freed += cvp_elasticsearch_heap_dumps.delete_files()
-      freed += cvp_tmp_upgrade.delete_files()
-      freed += kubelet_logs['all'].delete_files()
-      if vacuum_time:
-        freed += clean_system_journal(vacuum_time=vacuum_time)
-      else:
-        freed += clean_system_journal()
-      message = "Full cleanup - Freed %s.\nPlease restart CVP to free up space used by open log files." %convert_size(freed)
-      log.info(message)
-      print(message)
-    elif selection.lower() == 'q':
-      break
-    elif selection.lower() == 'r':
-      main()
-      break
-    elif selection.lower() == 'm' or selection.lower() == '9':
-      pass
-    else:
-      print("Unknown option %s." %selection)
+    		if selection.lower() == 'm':
+      			selection = showMenu(extended_menu)
+    		elif selection == '9':
+      			selection = showMenu(kubelet_menu)
 
-    try:
-      f = input("\nPress enter to continue")
-    except:
-      pass
+    		if selection == '0':
+      			freed = system_logs.delete_files()
+      			message = "System logs - Freed " + convert_size(freed)
+      			log.info(message)
+      			print(message)
+    		elif selection == '0s':
+      			print(system_logs.list())
+    		elif selection == '1':
+      			freed = system_crash_files.delete_files()
+      			message = "System crash files - Freed " + convert_size(freed)
+      			log.info(message)
+      			print(message)
+    		elif selection == '1s':
+      			print(system_crash_files.list())
+    		elif selection == '2':
+      			freed = cvp_logs.delete_files()
+      			message = "CVP Rotated logs - Freed " + convert_size(freed)
+      			log.info(message)
+      			print(message)
+    		elif selection == '2s':
+      			print(cvp_logs.list())
+    		elif selection == '3':
+      			print("WARNING! This may remove files that may be useful to debug issues.")
+      			freed = cvp_current_logs.delete_files()
+      			message = "CVP Current logs - Freed %s.\nPlease restart CVP to free up space used by open log files." % convert_size(freed)
+      			log.info(message)
+      			print(message)
+    		elif selection == '3s':
+      			print(cvp_current_logs.list())
+    		elif selection == '4':
+      			freed = cvp_docker_images.delete_files()
+      			message = "CVP docker images - Freed " + convert_size(freed)
+      			log.info(message)
+      			print(message)
+    		elif selection == '4s':
+      			print(cvp_docker_images.list())
+    		elif selection == '5':
+      			freed = cvp_rpms.delete_files()
+      			message = "CVP RPMs - Freed " + convert_size(freed)
+      			log.info(message)
+      			print(message)
+    		elif selection == '5s':
+      			print(cvp_rpms.list())
+    		elif selection == '6':
+      			freed = cvp_elasticsearch_heap_dumps.delete_files()
+      			message = "CVP Elasticsearch Heap Dumps - Freed " + convert_size(freed)
+      			log.info(message)
+      			print(message)
+    		elif selection == '6s':
+      			print(cvp_elasticsearch_heap_dumps.list())
+    		elif selection == '7':
+      			freed = cvp_tmp_upgrade.delete_files()
+      			message = "CVP temporary upgrade files - Freed " + convert_size(freed)
+      			log.info(message)
+      			print(message)
+    		elif selection == '7s':
+      			print(cvp_tmp_upgrade.list())
+    		elif selection == '8':
+      			vacuum_time = input("How many days to keep on the journal? (Default: 2 days)\n")
+      			if vacuum_time:
+        			freed = clean_system_journal(vacuum_time=vacuum_time)
+      			else:
+        			freed = clean_system_journal()
+      			message = "System journal vacuum - Freed " + convert_size(freed)
+      			log.info(message)
+      			print(message)
+    		elif selection.lower() == '9a':
+      			freed = kubelet_logs['all'].delete_files()
+      			message = "Kubelet logs - Freed " + convert_size(freed)
+      			log.info(message)
+      			print(message)
+    		elif selection.lower() == '9i':
+      			freed = kubelet_logs['info'].delete_files()
+      			message = "Kubelet logs (info) - Freed " + convert_size(freed)
+      			log.info(message)
+      			print(message)
+    		elif selection.lower() == '9w':
+      			freed = kubelet_logs['warning'].delete_files()
+      			message = "Kubelet logs (warning) - Freed " + convert_size(freed)
+      			log.info(message)
+      			print(message)
+    		elif selection.lower() == '9e':
+      			freed = kubelet_logs['error'].delete_files()
+      			message = "Kubelet logs (error) - Freed " + convert_size(freed)
+      			log.info(message)
+      			print(message)
+    		elif selection.lower() == '9s':
+      			print("--- Info ---")
+      			print(kubelet_logs['info'].list())
+      			print("--- Warning ---")
+      			print(kubelet_logs['warning'].list())
+      			print("--- Error ---")
+      			print(kubelet_logs['error'].list())
+    		elif selection.lower() == 'a' or selection.lower() == 'a!':
+      			if selection.lower() == 'a!':
+        			print("WARNING! This may remove files that may be useful to debug issues.")
+      			vacuum_time = input("How many days to keep on the journal? (Default: 2 days)\n")
+      			freed = system_logs.delete_files()
+      			freed += system_crash_files.delete_files()
+      			freed += cvp_logs.delete_files()
+      			if selection.lower() == 'a!':
+        			freed += cvp_current_logs.delete_files()
+      			freed += cvp_docker_images.delete_files()
+      			freed += cvp_rpms.delete_files()
+      			freed += cvp_elasticsearch_heap_dumps.delete_files()
+      			freed += cvp_tmp_upgrade.delete_files()
+      			freed += kubelet_logs['all'].delete_files()
+      			if vacuum_time:
+        			freed += clean_system_journal(vacuum_time=vacuum_time)
+      			else:
+        			freed += clean_system_journal()
+      			message = "Full cleanup - Freed %s.\nPlease restart CVP to free up space used by open log files." %convert_size(freed)
+      			log.info(message)
+      			print(message)
+    		elif selection.lower() == 'q':
+      			break
+    		elif selection.lower() == 'r':
+     			main()
+      			break
+    		elif selection.lower() == 'm' or selection.lower() == '9':
+      			pass
+    		else:
+      			print("Unknown option %s." %selection)
+
+    		try:
+      			f = input("\nPress enter to continue")
+    		except:
+      			pass
     
 if __name__ == "__main__":
   # Python 2-3 compatibility workaround
@@ -375,3 +460,4 @@ if __name__ == "__main__":
   except NameError:
     pass
   main()
+
