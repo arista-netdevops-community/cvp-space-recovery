@@ -2,8 +2,8 @@
 
 Find and remove unnecessary files to free up disk space in CVP servers through one of the following ways:
 
-A) Manual Process
-B) Automated process using crontab
+A) Manual Process  
+B) Automated process using crontab  
 
 ## A) Manual Process
 
@@ -11,7 +11,7 @@ Just copy the script to the CVP server(s) and run `python cleanup.py`. The scrip
 
 If you have a CVP cluster, you need to run the script in all nodes since it won't remotely connect to different servers.
 
-### Options
+### Options:
 ### System Logs
 Looks for and removes old logs with the suffix `*.gz` and `*.[0-9]` in the `/var/log` directory and subdirectories.
 
@@ -60,7 +60,7 @@ Removes kubelet log files from `/var/log`. When choosing this option you'll have
 
 
 ## B) Automated Process using crontab
-Just copy the script to the CVP server(s) into any directory such as `/tmp/` and specify the path and the frequency with which you want to run the script in crontab. 
+Just copy the script to the CVP server(s) into any directory such as `/tmp` and specify the path and the frequency with which you want to run the script in crontab. 
 
 For example:
 
@@ -72,7 +72,7 @@ If you have a CVP cluster, you need to run the script in all nodes since it won'
 
 The script then write to a file in path `/var/log/cleanup.log` everytime the script is executed. This help to identify when was the last cleanup process run.
 
-Sample output of the file cleanup.log is as follows:
+Sample output of the file `cleanup.log` is as follows:
 
 	Full cleanup - Freed 3B   Thu Feb 17 17:18:05 2022
 	Full cleanup - Freed 0B   Thu Feb 17 17:19:04 2022
