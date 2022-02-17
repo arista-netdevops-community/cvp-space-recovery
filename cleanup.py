@@ -259,7 +259,7 @@ def main():
 
   if len(sys.argv) > 1:
 	vacuum_time = sys.argv[1]
-	cleanup_log = open("cleanup_log.txt", "a")
+	cleanup_log = open("/var/log/cleanup_log.txt", "a")
   	freed = system_logs.auto_delete_files()
   	freed += system_crash_files.auto_delete_files()
   	freed += cvp_logs.auto_delete_files()
