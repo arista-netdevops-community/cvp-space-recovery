@@ -188,6 +188,7 @@ def check_args():
     parser = argparse.ArgumentParser()
 
     default_vacuum_time=2
+    default_logfile='/var/log/cleanup.log'
 
     parser.add_argument("--clean-all", action="store_true", default=False, help="Clean all files")
     parser.add_argument("--clean-current-logs", action="store_true", default=False, help="Clean current CVP log files")
@@ -200,7 +201,7 @@ def check_args():
     parser.add_argument("--clean-system-crash", action="store_true", default=False, help="Clean system crash log files")
     parser.add_argument("--clean-system-journal", action="store_true", default=False, help="Vacuum system journal")
     parser.add_argument("--clean-system-logs", action="store_true", default=False, help="Clean system log files")
-    parser.add_argument("--logfile", default='/var/log/cleanup.log', type=str, help="File to save logs to.")
+    parser.add_argument("--logfile", default=default_logfile, type=str, help="File to save logs to. Default: %s" %default_logfile)
     parser.add_argument("--vacuum-time", default=default_vacuum_time, type=int, help="How many days of logs to keep when vacuuming the system journal. Default: %s." %default_vacuum_time)
     parser.add_argument("--verbose", '-v', action="store_true", default=False, help="Print additional messages to the console")
     parser.add_argument("--debug", action="store_true", default=False, help="Turn on debugging")
