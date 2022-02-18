@@ -11,7 +11,16 @@ Just copy the script to the CVP server(s) and run `python cleanup.py`. The scrip
 
 If you have a CVP cluster, you need to run the script in all nodes since it won't remotely connect to different servers.
 
+<<<<<<< HEAD
 ### Options:
+=======
+## Automated Mode
+You can also run the script in automated mode by using arguments telling which kind of cleanup you want to perform. To do so you run it with the following syntax: `python cleanup.py --clean-all`.
+
+Please use `python cleanup.py --help` to see an updated list of all supported operations and options.
+
+## Options
+>>>>>>> main
 ### System Logs
 Looks for and removes old logs with the suffix `*.gz` and `*.[0-9]` in the `/var/log` directory and subdirectories.
 
