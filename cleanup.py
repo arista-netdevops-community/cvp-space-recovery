@@ -185,7 +185,7 @@ def showMenu(items, sort=True):
 
 def check_args():
     #Create parser and add arguments
-    parser = argparse.ArgumentParser(description="Clean CVP and system logs and unecessary files. You can run the script interactively by not using any arguments or use the following to clean up files automatically.")
+    parser = argparse.ArgumentParser(description="Clean CVP and system logs and unecessary files.", epilog="You can run the script interactively by not using any arguments.")
 
     default_vacuum_time=2
     default_logfile='/var/log/cleanup.log'
