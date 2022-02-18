@@ -190,7 +190,7 @@ def check_args():
     default_vacuum_time=2
     default_logfile='/var/log/cleanup.log'
 
-    parser.add_argument("--clean-all", action="store_true", default=False, help="Clean all files")
+    parser.add_argument("--clean-all", action="store_true", default=False, help="Clean all files except for current CVP logs")
     parser.add_argument("--clean-current-logs", action="store_true", default=False, help="Clean current CVP log files")
     parser.add_argument("--clean-cvp-esdumps", action="store_true", default=False, help="Clean CVP's Elasticsearch Heap Dumps")
     parser.add_argument("--clean-cvp-images", action="store_true", default=False, help="Clean CVP docker images")
