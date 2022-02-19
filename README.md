@@ -8,7 +8,7 @@ B) Non-interactive mode
 
 ## A) Interactive mode
 
-Just copy the script to the CVP server(s) and run `python cleanup.py`. The script may be copied to any directory, such as `/tmp`. You'll be presented with a multiple-choice menu with various options for removing old/unnecessary files.
+Just copy the script to the CVP server(s) and run `python cleanup.py`. The script may be copied to any directory, such as `/mnt`. You'll be presented with a multiple-choice menu with various options for removing old/unnecessary files.
 
 If you have a CVP cluster, you need to run the script in all nodes since it won't remotely connect to different servers.
 
