@@ -48,7 +48,7 @@ The script then writes to a file in path `/var/log/cleanup.log` everytime the sc
 
 Sample output of the file `cleanup.log` is as follows:
 
-        2022-02-19 01:43:18,707 - cleanup - WARNING - --- Starting Cleanup in Automatic mode ---
+    2022-02-19 01:43:18,707 - cleanup - WARNING - --- Starting Cleanup in Automatic mode ---
 	2022-02-19 01:43:18,708 - cleanup - WARNING - Removing System logs
 	2022-02-19 01:43:18,774 - cleanup - INFO - System logs: freed 0B
 	2022-02-19 01:43:18,774 - cleanup - WARNING - Removing System crash files
