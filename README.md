@@ -19,7 +19,7 @@ Please use `python cleanup.py --help` to see an updated list of all supported op
 
 Example:
 
-	```[root@cvp mnt]# python /mnt/autocleanup_V5.py --clean-all
+	[root@cvp mnt]# python /mnt/autocleanup_V5.py --clean-all
 	2022-02-19 02:14:50,266 - cleanup - WARNING - --- Starting Cleanup in Automatic mode ---
 	2022-02-19 02:14:50,266 - cleanup - WARNING - Removing System logs
 	2022-02-19 02:14:50,333 - cleanup - WARNING - Removing System crash files
@@ -30,7 +30,7 @@ Example:
 	2022-02-19 02:14:50,353 - cleanup - WARNING - Removing Temporary upgrade files
 	2022-02-19 02:14:50,354 - cleanup - WARNING - Removing Kubelet Logs - All
 	2022-02-19 02:14:50,389 - cleanup - WARNING - Cleaning system journal
-	2022-02-19 02:14:55,445 - cleanup - WARNING - --- Ending Cleanup --- Freed 0B```
+	2022-02-19 02:14:55,445 - cleanup - WARNING - --- Ending Cleanup --- Freed 0B
 
 ### Non-interactive mode using crontab
 
@@ -38,17 +38,17 @@ Just copy the script to the CVP server(s) into any directory such as `/mnt` (per
 
 For example:
 
-       ``` [root@cvp ~]# crontab -l
-        * * * * * python /mnt/cleanup.py --clean-all --quiet```
+       [root@cvp ~]# crontab -l
+        * * * * * python /mnt/cleanup.py --clean-all --quiet
 
-`--quiet` flag is used avoid stdout output on the terminal everytime the script is run. If `--quiet` is not used stdout will be written to /var/spool/mail/root. If no argument is provided the script will run in the manual process by default as shown in A).
+`--quiet` or `-q`flag is used avoid stdout on the terminal everytime the script is run. If `--quiet` or `-q` is not used stdout will be written to /var/spool/mail/root. If no argument is provided the script will run in the manual process by default as shown in A).
 If you have a CVP cluster, you need to run the script in all nodes since it won't remotely connect to different servers.
 
 The script then writes to a file in path `/var/log/cleanup.log` everytime the script is executed. This helps to identify when was the last cleanup process run.
 
 Sample output of the file `cleanup.log` is as follows:
 
-        ```2022-02-19 01:43:18,707 - cleanup - WARNING - --- Starting Cleanup in Automatic mode ---
+        2022-02-19 01:43:18,707 - cleanup - WARNING - --- Starting Cleanup in Automatic mode ---
 	2022-02-19 01:43:18,708 - cleanup - WARNING - Removing System logs
 	2022-02-19 01:43:18,774 - cleanup - INFO - System logs: freed 0B
 	2022-02-19 01:43:18,774 - cleanup - WARNING - Removing System crash files
@@ -68,7 +68,7 @@ Sample output of the file `cleanup.log` is as follows:
 	2022-02-19 01:43:18,828 - cleanup - WARNING - Cleaning system journal
 	2022-02-19 01:43:18,828 - cleanup - INFO - Backing up current system journal to /data/cvpbackup/journalctl-2022-02-19T01:43:18.828677 before cleanup
 	2022-02-19 01:43:23,804 - cleanup - INFO - Vacuum system journal: freed 0B
-	2022-02-19 01:43:23,804 - cleanup - WARNING - --- Ending Cleanup --- Freed 0B```
+	2022-02-19 01:43:23,804 - cleanup - WARNING - --- Ending Cleanup --- Freed 0B
 
 You can edit crontab by running `crontab -e` on the CVP server
 
