@@ -41,7 +41,7 @@ For example:
        [root@cvp ~]# crontab -l
         * * * * * python /mnt/cleanup.py --clean-all --quiet
 
-`--quiet` or `-q`flag is used avoid stdout on the terminal everytime the script is run. If `--quiet` or `-q` is not used stdout will be written to /var/spool/mail/root. If no argument is provided the script will run in the manual process by default as shown in A).
+`--quiet` or `-q` flag is used avoid stdout on the terminal everytime the script is run. If `--quiet` or `-q` is not used stdout will be written to /var/spool/mail/root. If no argument is provided the script will run in the manual process by default as shown in A).
 If you have a CVP cluster, you need to run the script in all nodes since it won't remotely connect to different servers.
 
 The script then writes to a file in path `/var/log/cleanup.log` everytime the script is executed. This helps to identify when was the last cleanup process run.
