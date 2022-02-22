@@ -3,8 +3,7 @@
 Find and remove unnecessary files to free up disk space in CVP servers through one of the following ways:
 
 A) Interactive mode  
-B) Non-interactive mode  
-- using crontab    
+B) Non-interactive mode      
 
 ## A) Interactive mode
 
@@ -72,8 +71,7 @@ Sample output of the file `cleanup.log` is as follows:
 
 You can edit crontab by running `crontab -e` on the CVP server
 
-**Please note**: When executing the script in the interactive mode, all logs are removed from the mentioned directories under OPTIONS below except for the "Current CVP logs" to which the CVP components would be currently writing to. If the current CVP logs need to be removed, you would need to follow the interactive mode of executing the script.
-
+**Please note**: When executing the script in the interactive mode with parameters mentioned above, all logs are removed from the mentioned directories under OPTIONS below except for the "Current CVP logs" to which the CVP components would be currently writing to. In order to remove the current CVP logs or other specific logs, you can run `python cleanup.py --help` that would list the various flags that you can choose from. For example: `python cleanup.py --clean-current-logs`. Additionally, in an event, the current CVP logs are removed, CVP would need to be restarted.
 
 ## Options
 ### System Logs
