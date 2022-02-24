@@ -205,6 +205,7 @@ def check_args():
     parser.add_argument("--vacuum-time", default=default_vacuum_time, type=int, help="How many days of logs to keep when vacuuming the system journal. Default: %s." %default_vacuum_time)
     parser.add_argument("--verbose", '-v', action="store_true", default=False, help="Print additional messages to the console")
     parser.add_argument("--debug", action="store_true", default=False, help="Turn on debugging")
+    parser.add_argument("--quiet","-q", action="store_true", default=False, help="Turns off output to terminal")
 
     args = parser.parse_args()
     return args
@@ -226,7 +227,7 @@ def main():
   with open(args.logfile, "a") as logf:
     log = logging.getLogger('cleanup')
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-
+    
     stdout = logging.StreamHandler(sys.stdout)
     if args.verbose:
       stdout.setLevel(logging.INFO)
@@ -235,7 +236,8 @@ def main():
     else:
       stdout.setLevel(logging.WARNING)
     stdout.setFormatter(formatter)
-    log.addHandler(stdout)
+    if args.quiet == False:
+    	log.addHandler(stdout)
 
     logfile = logging.StreamHandler(logf)
     logfile.setLevel(logging.INFO)
