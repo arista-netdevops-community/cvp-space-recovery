@@ -18,7 +18,7 @@ Please use `python cleanup.py --help` to see an updated list of all supported op
 
 Example:
 
-	[root@cvp mnt]# python /mnt/autocleanup_V5.py --clean-all
+	[root@cvp mnt]# python /mnt/cleanup.py --clean-all
 	2022-02-19 02:14:50,266 - cleanup - WARNING - --- Starting Cleanup in Automatic mode ---
 	2022-02-19 02:14:50,266 - cleanup - WARNING - Removing System logs
 	2022-02-19 02:14:50,333 - cleanup - WARNING - Removing System crash files
