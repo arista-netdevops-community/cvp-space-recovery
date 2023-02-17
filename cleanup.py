@@ -193,6 +193,7 @@ def check_args():
     parser.add_argument("--clean-all", action="store_true", default=False, help="Clean all files except for current CVP logs")
     parser.add_argument("--clean-current-logs", action="store_true", default=False, help="Clean current CVP log files")
     parser.add_argument("--clean-cvp-esdumps", action="store_true", default=False, help="Clean CVP's Elasticsearch Heap Dumps")
+    parser.add_argument("--clean-cvp-zkdumps", action="store_true", default=False, help="Clean CVP's Zookeeper Heap Dumps")
     parser.add_argument("--clean-cvp-images", action="store_true", default=False, help="Clean CVP docker images")
     parser.add_argument("--clean-cvp-logs", action="store_true", default=False, help="Clean rotated CVP log files")
     parser.add_argument("--clean-cvp-rpms", action="store_true", default=False, help="Clean CVP RPMs")
@@ -254,6 +255,7 @@ def main():
     cvp_rpms = Files(name="CVP RPMs", directories=["/RPMS"], prefixes=["*.rpm"], log=log)
     cvp_elasticsearch_heap_dumps = Files(name="CVP Elasticsearch Heap Dumps", directories=["/cvpi/apps/aeris/elasticsearch"], prefixes=["*.hprof"], log=log)
     cvp_tmp_upgrade = Files(name="Temporary upgrade files", directories=["/tmp/upgrade*"], prefixes=["*"], remove_directories=True, log=log)
+    cvp_clickhouse_zk_heap_dump = Files(name="CVP Zookeeper Heap Dumps", directories=["/home/cvp"], prefixes=["*.hprof"], log=log)
 
     kubelet_logs = {}
     kubelet_logs['all'] = Files(name="Kubelet Logs - All", directories=["/var/log"], prefixes=["kubelet.*.root.log.*"], log=log)
@@ -293,6 +295,10 @@ def main():
         step = cvp_elasticsearch_heap_dumps.auto_delete_files()
         freed += step
         log.info("%s: freed %s" %(cvp_elasticsearch_heap_dumps.name, convert_size(step)))
+      if args.clean_cvp_zkdumps or args.clean_all:
+        step = cvp_clickhouse_zk_heap_dump.auto_delete_files()
+        freed += step
+        log.info("%s: freed %s" %(cvp_clickhouse_zk_heap_dump.name, convert_size(step)))
       if args.clean_cvp_tmpupgrade or args.clean_all:
         step = cvp_tmp_upgrade.auto_delete_files()
         freed += step
@@ -330,6 +336,7 @@ def main():
           menu['7'] = "Clean CVP temporary upgrade directories (" + cvp_tmp_upgrade.pretty_size + ")"
           menu['8'] = "Vacuum system journal"
           menu['9'] = "Clean kubelet logs (" + kubelet_logs['all'].pretty_size + ")"
+          menu['10'] = "Clean Zookeeper Heap Dumps (" + cvp_clickhouse_zk_heap_dump.pretty_size + ")"
           menu["="] = "=============================================================="
           menu['A'] = "Clean all (A! to also remove current logs)"
           menu['M'] = "More options"
@@ -453,6 +460,14 @@ def main():
               print(kubelet_logs['warning'].list())
               print("--- Error ---")
               print(kubelet_logs['error'].list())
+          elif selection == '10':
+              freed = cvp_clickhouse_zk_heap_dump.delete_files()
+              message = "CVP Zookeeper Heap Dumps - Freed " + convert_size(freed)
+              log.info(message)
+              print(message)
+          elif selection == '10s':
+              print(cvp_clickhouse_zk_heap_dump.list())
+              
           elif selection.lower() == 'a' or selection.lower() == 'a!':
               if selection.lower() == 'a!':
                 print("WARNING! This may remove files that may be useful to debug issues.")
@@ -467,6 +482,7 @@ def main():
               freed += cvp_docker_images.delete_files()
               freed += cvp_rpms.delete_files()
               freed += cvp_elasticsearch_heap_dumps.delete_files()
+              freed += cvp_clickhouse_zk_heap_dump.delete_files()
               freed += cvp_tmp_upgrade.delete_files()
               freed += kubelet_logs['all'].delete_files()
               if vacuum_time:
